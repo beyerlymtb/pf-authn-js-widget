@@ -9,6 +9,7 @@ import { completeStateCallback } from './utils/redirectless';
 import paOnAuthorizationRequest from './utils/paOnAuthorizationRequest';
 import paOnAuthorizationSuccess from './utils/paOnAuthorizationSuccess';
 import './scss/main.scss';
+import fetchUtil from './utils/fetchUtil';
 //uncomment to add your personal branding
 // import './scss/branding.scss';
 
@@ -32,13 +33,13 @@ export default class AuthnWidget {
   }
 
   static get CORE_STATES() {
-    return ['USERNAME_PASSWORD_REQUIRED', 'MUST_CHANGE_PASSWORD', 'CHANGE_PASSWORD_EXTERNAL', 'NEW_PASSWORD_RECOMMENDED',
+    return ['HTTP_HEADERS_REQUIRED', 'USERNAME_PASSWORD_REQUIRED', 'FRAUD_CHALLENGE_REQUIRED', 'MUST_CHANGE_PASSWORD', 'CHANGE_PASSWORD_EXTERNAL', 'NEW_PASSWORD_RECOMMENDED',
       'NEW_PASSWORD_REQUIRED', 'SUCCESSFUL_PASSWORD_CHANGE', 'ACCOUNT_RECOVERY_USERNAME_REQUIRED',
       'ACCOUNT_RECOVERY_OTL_VERIFICATION_REQUIRED', 'RECOVERY_CODE_REQUIRED', 'PASSWORD_RESET_REQUIRED',
       'SUCCESSFUL_PASSWORD_RESET', 'CHALLENGE_RESPONSE_REQUIRED', 'USERNAME_RECOVERY_EMAIL_REQUIRED',
       'USERNAME_RECOVERY_EMAIL_SENT', 'SUCCESSFUL_ACCOUNT_UNLOCK', 'IDENTIFIER_REQUIRED',
       'EXTERNAL_AUTHENTICATION_COMPLETED', 'EXTERNAL_AUTHENTICATION_FAILED', 'EXTERNAL_AUTHENTICATION_REQUIRED',
-      'DEVICE_PROFILE_REQUIRED', 'REGISTRATION_REQUIRED', 'REFERENCE_ID_REQUIRED','CURRENT_CREDENTIALS_REQUIRED',
+      'DEVICE_PROFILE_REQUIRED', 'REGISTRATION_REQUIRED', 'REFERENCE_ID_REQUIRED', 'CURRENT_CREDENTIALS_REQUIRED',
       'DEVICE_SELECTION_REQUIRED', 'MFA_COMPLETED', 'MFA_FAILED', 'OTP_REQUIRED', 'ASSERTION_REQUIRED',
       'PUSH_CONFIRMATION_REJECTED', 'PUSH_CONFIRMATION_TIMED_OUT', 'PUSH_CONFIRMATION_WAITING',
       'ID_VERIFICATION_FAILED', 'ID_VERIFICATION_REQUIRED', 'ID_VERIFICATION_TIMED_OUT', 'ACCOUNT_LINKING_FAILED',
@@ -118,6 +119,8 @@ export default class AuthnWidget {
     this.hideDeviceManagementPopup = this.hideDeviceManagementPopup.bind(this);
     this.pollCheckGet = this.pollCheckGet.bind(this);
     this.postEmailVerificationRequired = this.postEmailVerificationRequired.bind(this);
+    this.submitHttpHeaders = this.submitHttpHeaders.bind(this);
+    this.submitFraudChallenge = this.submitFraudChallenge.bind(this);
     this.stateTemplates = new Map();  //state -> handlebar templates
     this.eventHandler = new Map();  //state -> eventHandlers
     this.postRenderCallbacks = new Map();
@@ -127,7 +130,11 @@ export default class AuthnWidget {
     AuthnWidget.CORE_STATES.forEach(state => this.registerState(state));
 
     this.addEventHandler('IDENTIFIER_REQUIRED', this.registerIdFirstLinks);
+    this.addPostRenderCallback('HTTP_HEADERS_REQUIRED', this.submitHttpHeaders);
+    //this.addEventHandler('HTTP_HEADERS_REQUIRED', this.submitHttpHeaders);
     this.addEventHandler('USERNAME_PASSWORD_REQUIRED', this.registerAltAuthSourceLinks);
+    //this.addPostRenderCallback('FRAUD_CHALLENGE_REQUIRED', this.submitFraudChallenge);
+    this.addEventHandler('FRAUD_CHALLENGE_REQUIRED', this.submitFraudChallenge);
     this.addEventHandler('REGISTRATION_REQUIRED', this.registerRegistrationLinks);
     this.addEventHandler('REGISTRATION_REQUIRED', this.registerAltAuthSourceLinks);
     this.addEventHandler('EXTERNAL_AUTHENTICATION_COMPLETED', this.postContinueAuthentication);
@@ -172,9 +179,9 @@ export default class AuthnWidget {
     this.actionModels.set('checkChallengeResponse', { required: ['challengeResponse'], properties: ['challengeResponse'] });
     this.actionModels.set('submitIdentifier', { required: ['identifier'], properties: ['identifier'] });
     this.actionModels.set('clearIdentifier', { required: ['identifier'], properties: ['identifier'] });
-    this.actionModels.set('registerUser', {required: ['password', 'fieldValues'], properties: ['password', 'captchaResponse', 'fieldValues', 'thisIsMyDevice']});
-    this.actionModels.set('checkOtp', {required: ['otp']});
-    this.actionModels.set('checkAssertion', {required: ['assertion', 'origin', 'compatibility'],  properties: ['assertion', 'origin', 'compatibility'] });
+    this.actionModels.set('registerUser', { required: ['password', 'fieldValues'], properties: ['password', 'captchaResponse', 'fieldValues', 'thisIsMyDevice'] });
+    this.actionModels.set('checkOtp', { required: ['otp'] });
+    this.actionModels.set('checkAssertion', { required: ['assertion', 'origin', 'compatibility'], properties: ['assertion', 'origin', 'compatibility'] });
     this.actionModels.set('checkCredential', { required: ['passcode'], properties: ['username', 'passcode'] });
     this.actionModels.set('checkNextTokencode', { required: ['tokencode'], properties: ['tokencode'] });
     this.actionModels.set('checkPasscode', { required: ['passcode'], properties: ['passcode'] });
@@ -216,6 +223,69 @@ export default class AuthnWidget {
     } catch (err) {
       this.generalErrorRenderer(err.message);
     }
+  }
+
+  async submitHttpHeaders() {
+    console.log('submitting http headers.');
+    this.renderSpinnerTemplate();
+    setTimeout(() => {
+      this.store.dispatch('POST_FLOW', 'submitHttpHeaders', `{
+        "headers": [
+            {
+                "headerName": "User-Agent",
+                "headerValue": "Mozilla/5.0 (Windows; U; Windows NT 5.2; en-US; rv:1.8.1.11) Gecko/20071127 Firefox/2.0.0.11"
+            },
+            {
+                "headerName": "Referer",
+                "headerValue": "http://localhost:5000/headers"
+            }
+        ]
+    }`).catch((err) => this.generalErrorRenderer(err.message));
+    }, 1);
+
+
+
+    /*let util = new fetchUtil(this.store.baseUrl, true);
+
+    let result = await util.postFlow(this.store.flowId, 'submitHttpHeaders', `{
+      "headers": [
+          {
+              "headerName": "User-Agent",
+              "headerValue": "Mozilla/5.0 (Windows; U; Windows NT 5.2; en-US; rv:1.8.1.11) Gecko/20071127 Firefox/2.0.0.11"
+          },
+          {
+              "headerName": "Referer",
+              "headerValue": "http://localhost:5000/headers"
+          }
+      ]
+  }`);*/
+
+    //setTimeout(() => {
+    //  this.store.dispatch('USERNAME_PASSWORD_REQUIRED');
+    // }, 1000);
+
+
+
+
+
+
+  }
+
+  async submitFraudChallenge() {
+    console.log('submit fraud challenge');
+
+    this.renderSpinnerTemplate();
+    this.store.dispatch('POST_FLOW', 'submitFraudChallenge', `{
+        "deviceFingerprint" : "version=1&pm_fpua=mozilla/4.0 (compatible; msie 7.0; windows nt 5.1; .net clr 2.0.50727; .net clr 1.1.4322; .net clr 3.0.04506.30; .net clr 3.0.04506.648)|4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 2.0.50727; .NET CLR 1.1.4322; .NET CLR 3.0.04506.30; .NET CLR 3.0.04506.648)|Win32|0|x86|en-us|18066&pm_fpsc=32|1024|768|738&pm_fpsw=abk=6,0,2900,5512|wnt=6,0,2900,2180|dht=7,0,5730,11|dhj=6,0,1,223|dan=6,0,3,531|dsh=11,0,5721,5145|ie5=7,0,5730,11|icw=5,0,2918,1900|iec=5,0,3805,0|ieh=7,0,5730,11|iee=6,0,5730,11|wmp=11,0,5721,5145|obp=7,0,5730,11|oex=6,0,2900,5512|net=4,4,0,3400|tks=4,71,1968,1|mvm=5,0,3810,0&pm_fptz=-5&pm_fpln=lang=en-us|syslang=en-us|userlang=en-us&pm_fpjv=1&pm_fpco=1",
+        "ipAddress" : "172.129.168.180",
+        "userAgent" : "Mozilla/5.0 (Windows; U; Windows NT 5.2; en-US; rv:1.8.1.11) Gecko/20071127 Firefox/2.0.0.11",
+        "deviceTokenCookie" : "PMV30RZOUm/Gv2Q3dSWiLFeX8It1z+MCwvYPIg5CcWYn6sZPa/N7wof0P+JUyB24zgdaaQgMGL3y8suYY/7AXb5hY+Ng=="
+      }`).catch((err) => this.generalErrorRenderer(err.message));
+
+
+
+
+
   }
 
   generalErrorRenderer(msg) {
@@ -376,20 +446,17 @@ export default class AuthnWidget {
   }
 
 
-  postAssertionRequired()
-  {
+  postAssertionRequired() {
     let data = this.store.getStore();
-    var selectedDevice = data.devices.filter(device => {return device.id === data.selectedDeviceRef.id;});
+    var selectedDevice = data.devices.filter(device => { return device.id === data.selectedDeviceRef.id; });
     getCompatibility().then(value => {
       // compare value with received, if there is no match, trigger cancel flow
       // PLATFORM - FULL
       // SECURITY_KEY - SECURITY_KEY_ONLY
-      if ( (selectedDevice[0].type === 'SECURITY_KEY' && value === 'NONE') || (selectedDevice[0].type === 'PLATFORM' && value !== 'FULL') )
-      {
+      if ((selectedDevice[0].type === 'SECURITY_KEY' && value === 'NONE') || (selectedDevice[0].type === 'PLATFORM' && value !== 'FULL')) {
         // Cancel authentication if this is the only device so we don't loop
         console.log("No acceptable authenticator");
-        if(data.devices.length == 1)
-        {
+        if (data.devices.length == 1) {
           // Hide back button and all other stuff. Only Cancel is allowed
           document.querySelector('#assertionRequiredSpinnerId').style.display = 'none';
           document.querySelector('#assertionRequiredAuthenticatingId').style.display = 'none';
@@ -397,8 +464,7 @@ export default class AuthnWidget {
           document.querySelector('#changeDevice').style.display = 'none';
           document.querySelector('#deviceInfoBlockId').style.display = 'none';
         }
-        else
-        {
+        else {
           // Hide spinner and info section, show error so user can go back to device selection if required or cancel
           document.querySelector('#assertionRequiredSpinnerId').style.display = 'none';
           document.querySelector('#assertionRequiredAuthenticatingId').style.display = 'none';
@@ -406,8 +472,7 @@ export default class AuthnWidget {
           document.querySelector('#deviceInfoBlockId').style.display = 'none';
         }
       }
-      else
-      {
+      else {
         doWebAuthn(this);
       }
     });
@@ -415,31 +480,28 @@ export default class AuthnWidget {
 
   postDeviceSelectionRequired() {
     let data = this.store.getStore();
-    if(data.userSelectedDefault === false)
-    {
+    if (data.userSelectedDefault === false) {
       var deviceKebabMenus = document.querySelectorAll('#kebab-menu-icon-id');
-      [].forEach.call(deviceKebabMenus, function(deviceKebabMenu) {
+      [].forEach.call(deviceKebabMenus, function (deviceKebabMenu) {
         deviceKebabMenu.style.display = "none";
       });
     }
 
     getCompatibility().then(value => {
-      if (value === 'SECURITY_KEY_ONLY')
-      {
+      if (value === 'SECURITY_KEY_ONLY') {
         var platformDevices = document.querySelectorAll("[id^='PLATFORM-']");
-        [].forEach.call(platformDevices, function(platformDevice) {
+        [].forEach.call(platformDevices, function (platformDevice) {
           platformDevice.style.display = "none";
         });
       }
-      else if (value === 'NONE')
-      {
+      else if (value === 'NONE') {
         var platformDevices = document.querySelectorAll("[id^='PLATFORM-']");
-        [].forEach.call(platformDevices, function(platformDevice) {
+        [].forEach.call(platformDevices, function (platformDevice) {
           platformDevice.style.display = "none";
         });
 
         var securityKeyDevices = document.querySelectorAll("[id^='SECURITY_KEY-']");
-        [].forEach.call(securityKeyDevices, function(securityKeyDevice) {
+        [].forEach.call(securityKeyDevices, function (securityKeyDevice) {
           securityKeyDevice.style.display = "none";
         });
       }
@@ -463,7 +525,7 @@ export default class AuthnWidget {
       case 'TMX-SDK':
         script = document.createElement('script');
         script.src = this.deviceProfileScript;
-        script.onload = function() {
+        script.onload = function () {
           pinghelper.run_sid_provided(data.deviceProfilingDomain,
             data.riskOrgId,
             data.riskSessionId);
@@ -582,7 +644,7 @@ export default class AuthnWidget {
 
   registerMfaChangeDeviceEventHandler() {
     document.getElementById('changeDevice')
-            .addEventListener('click', this.handleMfaDeviceChange);
+      .addEventListener('click', this.handleMfaDeviceChange);
   }
 
   async handleMfaDeviceChange(evt) {
@@ -645,7 +707,7 @@ export default class AuthnWidget {
   registerAgentlessHandler() {
     console.log("registering event handlers for 'data-agentlessActionid' elements in 'reference_id_required.hbs'");
     Array.from(document.querySelectorAll('[data-agentlessActionid]')).
-    forEach(element => element.addEventListener('click', this.handleAgentlessSignOn));
+      forEach(element => element.addEventListener('click', this.handleAgentlessSignOn));
   }
 
   handleAgentlessSignOn(evt) {
@@ -722,13 +784,11 @@ export default class AuthnWidget {
   async registerIdVerificationRequiredEventHandler() {
     let data = this.store.getStore();
 
-    if (data.errorDetails !== undefined)
-    {
+    if (data.errorDetails !== undefined) {
       document.getElementById("requiredDescription").style.display = "none";
       document.getElementById("errorDescription").style.display = "block";
     }
-    else
-    {
+    else {
       document.getElementById("requiredDescription").style.display = "block";
       document.getElementById("errorDescription").style.display = "none";
     }
@@ -747,7 +807,7 @@ export default class AuthnWidget {
 
   postIdVerificationRequired() {
     document.getElementById('copy')
-            .addEventListener('click', this.copyCode);
+      .addEventListener('click', this.copyCode);
 
     this.pollCheckGet(this.store.getStore().verificationCode, 5000);
   }
@@ -761,8 +821,7 @@ export default class AuthnWidget {
   handleIdVerificationFailed() {
     let data = this.store.getStore();
 
-    if (data.errorDetails !== undefined)
-    {
+    if (data.errorDetails !== undefined) {
       document.getElementById("errorMessage").innerHTML = this.makeIdVerificationErrorMessage(data.errorDetails);
     }
   }
@@ -801,16 +860,15 @@ export default class AuthnWidget {
   makeIdVerificationErrorMessage(errorDetails) {
     var errorMessage = '';
 
-    errorDetails.forEach(errorDetail =>
-      {
-        if (errorMessage === '') {
-          errorMessage = errorDetail.userMessage
-        }
-        else {
-          var append = '<br>' + errorDetail.userMessage
-          errorMessage += append
-        }
-      })
+    errorDetails.forEach(errorDetail => {
+      if (errorMessage === '') {
+        errorMessage = errorDetail.userMessage
+      }
+      else {
+        var append = '<br>' + errorDetail.userMessage
+        errorMessage += append
+      }
+    })
 
     return errorMessage;
   }
@@ -926,9 +984,9 @@ export default class AuthnWidget {
         formDataEntry = formDataEntries.next();
       }
 
-      for(let key in convertedData) {
+      for (let key in convertedData) {
         let values = formData.getAll(key);
-        if(this.isMultiValueField(formElement, key))
+        if (this.isMultiValueField(formElement, key))
           object[key] = values;
         else
           object[key] = values[0]
@@ -955,6 +1013,8 @@ export default class AuthnWidget {
   }
 
   render(prevState, state) {
+    console.log('prev state: ', prevState);
+    console.log('state: ', state);
     let currentState = state.status;
     let template = this.getTemplate('general_error');
     if (currentState) {
@@ -1007,6 +1067,7 @@ export default class AuthnWidget {
   getTemplate(key) {
     key = key.toLowerCase();
     let template = this.stateTemplates.get(key);
+    console.log('state templates =>', template)
     if (template === undefined) {
       template = require(`./partials/${key}.hbs`);
       this.stateTemplates.set(key, template);
@@ -1067,7 +1128,7 @@ export default class AuthnWidget {
 
   checkDropdownSelected(field) {
     let selected_options = field.querySelectorAll(`option[selected]`);
-    if(selected_options.length > 0)
+    if (selected_options.length > 0)
       field.classList.remove("placeholder-shown");
   }
 
@@ -1076,14 +1137,14 @@ export default class AuthnWidget {
     let formData = this.getFormData();
     let actionModelProperties = this.actionModels.get('registerUser').properties;
 
-    let payload = {fieldValues: {}};
+    let payload = { fieldValues: {} };
     Object.keys(formData).forEach((key) => {
-      if(actionModelProperties.indexOf(key) >= 0)
+      if (actionModelProperties.indexOf(key) >= 0)
         payload[key] = formData[key];
       else {
         let field_value = formData[key];
 
-        if(Array.isArray(field_value)) {
+        if (Array.isArray(field_value)) {
           let values = {};
           field_value.forEach(option => {
             values[option] = true;

@@ -5,6 +5,7 @@ export default class fetchUtil {
   }
 
   doRequest(method, flowId, actionId, body) {
+    console.log('action id: ', actionId);
     var FLOWS_ENDPOINT = '/pf-ws/authn/flows/';
     var url = this.baseUrl + FLOWS_ENDPOINT + flowId;
     var headers = {
@@ -14,9 +15,11 @@ export default class fetchUtil {
     if (actionId) {
       var contentType = 'application/json';
       if (this.useActionParam) {
+        console.log('THERE IS AN ACTION ID: ', actionId);
         url = url + '?action=' + actionId;
       }
       else {
+        console.log('NO ACTION ID.')
         contentType = 'application/vnd.pingidentity.' + actionId + '+json';
       }
       headers['Content-Type'] = contentType;

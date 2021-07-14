@@ -30,7 +30,7 @@ module.exports = (env, argv) => {
       },
       contentBase: [path.join(__dirname, 'src')],
       compress: true,
-      port: 8443,
+      port: 4200,
       https: true,
     },
     entry: ['formdata-polyfill', 'whatwg-fetch', path.join(PATHS.src, 'index')],
