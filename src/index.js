@@ -1,3 +1,5 @@
+import './hashtable.js';
+import './rsa.js';
 import Assets from './utils/assets';
 import queryString from 'query-string';
 import 'core-js/stable';
@@ -13,7 +15,12 @@ import fetchUtil from './utils/fetchUtil';
 //uncomment to add your personal branding
 // import './scss/branding.scss';
 
+
+
 (function () {
+  console.log('get device print: ')
+  console.log('device print: ', encode_deviceprint());
+  console.log('window deviceprint', window['device_print'])
 
   if (typeof window.CustomEvent === "function") return false;
 
@@ -229,6 +236,7 @@ export default class AuthnWidget {
     console.log('submitting http headers.');
     this.renderSpinnerTemplate();
     setTimeout(() => {
+      //@TO-DO, need to figure out what headers need to be submitted to fraud layer
       this.store.dispatch('POST_FLOW', 'submitHttpHeaders', `{
         "headers": [
             {
@@ -241,51 +249,27 @@ export default class AuthnWidget {
             }
         ]
     }`).catch((err) => this.generalErrorRenderer(err.message));
-    }, 1);
-
-
-
-    /*let util = new fetchUtil(this.store.baseUrl, true);
-
-    let result = await util.postFlow(this.store.flowId, 'submitHttpHeaders', `{
-      "headers": [
-          {
-              "headerName": "User-Agent",
-              "headerValue": "Mozilla/5.0 (Windows; U; Windows NT 5.2; en-US; rv:1.8.1.11) Gecko/20071127 Firefox/2.0.0.11"
-          },
-          {
-              "headerName": "Referer",
-              "headerValue": "http://localhost:5000/headers"
-          }
-      ]
-  }`);*/
-
-    //setTimeout(() => {
-    //  this.store.dispatch('USERNAME_PASSWORD_REQUIRED');
-    // }, 1000);
-
-
-
-
-
-
+    }, 100);
   }
 
   async submitFraudChallenge() {
     console.log('submit fraud challenge');
-
     this.renderSpinnerTemplate();
+    console.log('devicetokencookie: ')
+    this.createCookie()
+    let deviceprint = this.getDevicePrint().toString();
+    let userAgent = navigator.userAgent.toString();
+    console.log('submit fraud challenge with: ', `{
+      "deviceFingerprint" : "${deviceprint}",
+      "userAgent" : "${userAgent}",
+      "deviceTokenCookie" : "PMV30RZOUm/Gv2Q3dSWiLFeX8It1z+MCwvYPIg5CcWYn6sZPa/N7wof0P+JUyB24zgdaaQgMGL3y8suYY/7AXb5hY+Ng=="
+    }`);
     this.store.dispatch('POST_FLOW', 'submitFraudChallenge', `{
-        "deviceFingerprint" : "version=1&pm_fpua=mozilla/4.0 (compatible; msie 7.0; windows nt 5.1; .net clr 2.0.50727; .net clr 1.1.4322; .net clr 3.0.04506.30; .net clr 3.0.04506.648)|4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 2.0.50727; .NET CLR 1.1.4322; .NET CLR 3.0.04506.30; .NET CLR 3.0.04506.648)|Win32|0|x86|en-us|18066&pm_fpsc=32|1024|768|738&pm_fpsw=abk=6,0,2900,5512|wnt=6,0,2900,2180|dht=7,0,5730,11|dhj=6,0,1,223|dan=6,0,3,531|dsh=11,0,5721,5145|ie5=7,0,5730,11|icw=5,0,2918,1900|iec=5,0,3805,0|ieh=7,0,5730,11|iee=6,0,5730,11|wmp=11,0,5721,5145|obp=7,0,5730,11|oex=6,0,2900,5512|net=4,4,0,3400|tks=4,71,1968,1|mvm=5,0,3810,0&pm_fptz=-5&pm_fpln=lang=en-us|syslang=en-us|userlang=en-us&pm_fpjv=1&pm_fpco=1",
+        "deviceFingerprint" : "${deviceprint}",
         "ipAddress" : "172.129.168.180",
-        "userAgent" : "Mozilla/5.0 (Windows; U; Windows NT 5.2; en-US; rv:1.8.1.11) Gecko/20071127 Firefox/2.0.0.11",
+        "userAgent" : "${userAgent}",
         "deviceTokenCookie" : "PMV30RZOUm/Gv2Q3dSWiLFeX8It1z+MCwvYPIg5CcWYn6sZPa/N7wof0P+JUyB24zgdaaQgMGL3y8suYY/7AXb5hY+Ng=="
       }`).catch((err) => this.generalErrorRenderer(err.message));
-
-
-
-
-
   }
 
   generalErrorRenderer(msg) {
@@ -1180,5 +1164,55 @@ export default class AuthnWidget {
       status.classList.add('text-input__icon--error');
       document.querySelector('#submit').disabled = true;
     }
+  }
+
+  getDevicePrint() {
+    try {
+      return encode_deviceprint();
+    } catch (err) {
+      throw new Error(AuthnWidget.generalErrorRenderer);
+    }
+  }
+
+  createCookie(name, value, days, noDomain) {
+    if (days) {
+           var date = new Date();
+           date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+           var gmt = date['toGMTString']();
+           var expires = "; expires=" + gmt;
+    }      else {
+           var expires = "";
+    }
+    if (noDomain) {
+           var domain = "";
+    } else {
+           var domain = "; domain=.mtb.com";
+    }
+    document.cookie = name + "=" + value + expires + domain + ";path=/";
+    console.log('cookie created: ',document.cookie = name + "=" + value + expires + domain + ";path=/")
+  }
+  
+  
+  
+  
+  
+  
+  //read the cookie
+  getCookieByName(cname) {
+  var name = cname + "=";
+  
+  // var decodedCookie = decodeURIComponent(document.cookie);
+  var decodedCookie = document.cookie;
+  var ca = decodedCookie.split(';');
+  for(var i = 0; i <ca.length; i++) {
+  var c = ca[i];
+  while (c.charAt(0) == ' ') {
+   c = c.substring(1);
+  }
+  if (c.indexOf(name) == 0) {
+   return c.substring(name.length, c.length);
+  }
+  }
+  return "";
   }
 }

@@ -4,6 +4,7 @@
   </div>
   {{#if authorizeResponse}}
   <h1 class="heading">Authentication Success!</h1>
+  <button onclick="myFunction()">Signout</button>
   {{else}}
   <h1 class="heading">Change Password</h1>
   <div class="text-block">
@@ -11,3 +12,9 @@
   </div>
   {{/if}}
 </div>
+
+<script>
+  function myFunction() {
+    console.log('signing out...');
+  }
+</script>
